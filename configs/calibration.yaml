@@ -1,0 +1,28 @@
+pattern_cols: 10
+pattern_rows: 7
+center_distance_mm: 40
+
+R_gimbal2imubody: [1, 0, 0, 0, 1, 0,  0, 0, 1]
+
+camera_name: "hikrobot"
+exposure_ms: 3
+gain: 10.0
+vid_pid: "2bdf:0001"
+
+#####-----QDU C-board communication-----#####
+# [9.21-QDU] QDU DevC-USB uses USB CDC serial, 115200 8N1, and SharedTopic frames.
+qdu_communication:
+  # Stable per-device symlink; it remains valid if the ttyACM number changes after hotplug.
+  device: "/dev/serial/by-id/usb-QDU-Future_MainCtrl_QDU-Future-MainCtrl-89ABCDEF0123456701234567470054000E50485939373620-if00"
+  baud_rate: 115200
+  # Receive-only for the first hardware gate. Set true only after RX and hotplug validation.
+  tx_enabled: false
+  reconnect_interval_ms: 500
+  read_timeout_ms: 10
+  # A missing quaternion beyond this interval makes the link stale and inhibits TX.
+  stale_timeout_ms: 250
+  # The supplied RX contract has no mode or live bullet-speed topic; use explicit defaults.
+  default_mode: "auto_aim"
+  default_bullet_speed: 21.7
+  # Sentry uses ahrs_quaternion; the general configuration uses gimbal_quat.
+  quaternion_topics: ["ahrs_quaternion", "gimbal_quat"]

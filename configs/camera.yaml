@@ -1,0 +1,26 @@
+# [9.9-6] Pi Debian ARM64 / MV-CS016-10UC 相机单测模板，不含机器人的标定/通信参数。
+camera_name: "hikrobot"
+exposure_ms: 3.0
+gain: 10.0
+# [Pi方向·09-16实测] 用户确认实物正立而原始预览整体倒置；取图后旋转180度，检测与网页预览均已确认正立。
+# 只修正方向，不调亮度；后续Solver标定必须与此最终图像方向对应。
+rotate_180: true
+serial_number: "" # 空值仅允许首次枚举到一台 USB 相机；选中后按串号重连。
+
+external_trigger: false
+trigger_source: "Line0" # 外触发时使用，必须匹配实际接线和相机节点。
+trigger_activation: "RisingEdge"
+acquisition_frame_rate: 100.0 # 自由运行的设定值，不代表实测帧率。
+
+# [9.9-6][Pi相机B·09-15实测] DA6589759 已回读并输出 2x2 抽取后的 720x540 BGR8；更换相机、ROI或镜头后仍须重新核对。
+# 回读尺寸不符会报错，不会偷偷 resize；应按实际 ROI/抽取模式修改并重新标定。
+decimation_horizontal: 2
+decimation_vertical: 2
+expected_width: 720
+expected_height: 540
+
+pool_size: 4 # [9.9-5] 720x540 BGR 槽位合计约 4.45 MiB，不含 SDK 内部缓存。
+grab_timeout_ms: 100
+read_timeout_ms: 250
+reconnect_delay_ms: 1000
+reconnect_after_timeouts: 10 # 仅自由运行：连续 SDK 取图超时后重开；外触发等待不计。

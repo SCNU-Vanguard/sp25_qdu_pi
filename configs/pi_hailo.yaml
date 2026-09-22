@@ -1,0 +1,7 @@
+# [9.9-2][9.9-3][Pi接入] 仅用于无控制输出的图片检测，不包含相机/IMU 标定参数。
+# HEF 指纹与当前路径见 docs/9.9-pi-integration.md；路径必须在树莓派上可读。
+hailo_model: szu-int16-head-l
+hef_path: /home/xiao/workspace/current/pi-camera-249fps-20260822-product-arm64/source-live/Modules/ArmorDetector/model/szu_int16_head_l.hef
+use_roi: false
+min_confidence: 0.8
+nms_iou: 0.5
