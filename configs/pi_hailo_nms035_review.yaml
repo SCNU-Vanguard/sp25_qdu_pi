@@ -1,0 +1,9 @@
+# [Pi实图] 仅为去重对照候选：相对pi_hailo.yaml只改nms_iou，正式配置不变。
+# 青大参考另有同色同号IoU>=0.35的二次去重；此处借现有全类别NMS做单变量对照，
+# 不声称完整复刻其规则。须用相同原图验证重复框减少且相邻不同装甲未误合并。
+# 去重不会修正留下框的角点，不能用“只剩一个框”作为整体识别通过的依据。
+hailo_model: szu-int16-head-l
+hef_path: /home/xiao/workspace/current/pi-camera-249fps-20260822-product-arm64/source-live/Modules/ArmorDetector/model/szu_int16_head_l.hef
+use_roi: false
+min_confidence: 0.8
+nms_iou: 0.35

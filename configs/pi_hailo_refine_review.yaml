@@ -1,0 +1,14 @@
+# [Pi灯条] 真实灯条修正版验收配置；保留pi_hailo.yaml作为原始基线。
+# 同一HEF、置信度0.8及NMS0.5；本轮只验证角点修正+相同灯条对去重。
+hailo_model: szu-int16-head-l
+hef_path: /home/xiao/workspace/current/pi-camera-249fps-20260822-product-arm64/source-live/Modules/ArmorDetector/model/szu_int16_head_l.hef
+use_roi: false
+min_confidence: 0.8
+nms_iou: 0.5
+lightbar_refine:
+  enabled: true
+  threshold: 150 # 原SP25的亮灯条分割初值，需原图验证，不改变相机曝光。
+  min_length: 6.0 # 当前720x540原图像素；过小亮点不用于修正。
+  max_corner_shift_ratio: 0.75 # 允许移动最多0.75倍实测灯条长度，仍须颜色/几何/唯一匹配通过。
+# [Pi灯条·09-19实测] 有可靠灯条对时只保留修正结果；整帧都无法可靠修正时沿用原SP25思路回退网络候选。
+# 该回退保住移动召回，但触边或只剩一根灯条时仍可能留下乱框；本文件仍是检测阶段review配置，尚未并入整车生产YAML。
