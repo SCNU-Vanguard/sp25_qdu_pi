@@ -14,7 +14,6 @@ add_library(io STATIC
     cboard.cpp
     qdu_shared_topic_protocol.cpp # [9.21-QDU] QDU libxr SharedTopic 字节协议。
     qdu_shared_topic.cpp # [9.21-QDU] DevC-USB 链路、失效门控与热插拔重连。
-    dm_imu/dm_imu.cpp
     gimbal/gimbal.cpp
 )
 

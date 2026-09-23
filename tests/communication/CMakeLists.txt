@@ -26,7 +26,6 @@ if(UNIX)
     qdu_link_monitor
     qdu_link_monitor.cpp
     ../../io/cboard.cpp
-    ../../io/gimbal/gimbal.cpp
     ../../io/qdu_shared_topic.cpp
     ../../io/qdu_shared_topic_protocol.cpp
     ../../tools/logger.cpp)
