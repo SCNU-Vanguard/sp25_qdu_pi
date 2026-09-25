@@ -1,15 +1,18 @@
 #include <fmt/core.h>
 #include <yaml-cpp/yaml.h>
 
+#include <cmath>
 #include <fstream>
 #include <opencv2/opencv.hpp>
+#include <stdexcept>
 
 #include "tools/img_tools.hpp"
 
 const std::string keys =
   "{help h usage ? |                          | 输出命令行参数说明}"
   "{config-path c  | configs/calibration.yaml | yaml配置文件路径 }"
-  "{@input-folder  | assets/img_with_q        | 输入文件夹路径   }";
+  "{@input-folder  | assets/img_with_q        | 输入文件夹路径   }"
+  "{no-display     | false                    | 不打开窗口，适用于 SSH }";
 
 std::vector<cv::Point3f> centers_3d(const cv::Size & pattern_size, const float center_distance)
 {
@@ -25,13 +28,15 @@ std::vector<cv::Point3f> centers_3d(const cv::Size & pattern_size, const float c
 void load(
   const std::string & input_folder, const std::string & config_path, cv::Size & img_size,
   std::vector<std::vector<cv::Point3f>> & obj_points,
-  std::vector<std::vector<cv::Point2f>> & img_points)
+  std::vector<std::vector<cv::Point2f>> & img_points, bool no_display)
 {
   // 读取yaml参数
   auto yaml = YAML::LoadFile(config_path);
   auto pattern_cols = yaml["pattern_cols"].as<int>();
   auto pattern_rows = yaml["pattern_rows"].as<int>();
   auto center_distance_mm = yaml["center_distance_mm"].as<double>();
+  if (pattern_cols < 2 || pattern_rows < 2 || !std::isfinite(center_distance_mm) || center_distance_mm <= 0)
+    throw std::runtime_error("Invalid circle grid dimensions or center_distance_mm");
   cv::Size pattern_size(pattern_cols, pattern_rows);
 
   for (int i = 1; true; i++) {
@@ -41,18 +46,22 @@ void load(
     if (img.empty()) break;
 
     // 设置图片尺寸
-    img_size = img.size();
+    if (i == 1) img_size = img.size();
+    if (img.size() != img_size)
+      throw std::runtime_error("Mixed image sizes: " + img_path);
 
     // 识别标定板
     std::vector<cv::Point2f> centers_2d;
     auto success = cv::findCirclesGrid(img, pattern_size, centers_2d, cv::CALIB_CB_SYMMETRIC_GRID);
 
     // 显示识别结果
-    auto drawing = img.clone();
-    cv::drawChessboardCorners(drawing, pattern_size, centers_2d, success);
-    cv::resize(drawing, drawing, {}, 0.5, 0.5);  // 缩小图片尺寸便于显示完全
-    cv::imshow("Press any to continue", drawing);
-    cv::waitKey(0);
+    if (!no_display) {
+      auto drawing = img.clone();
+      cv::drawChessboardCorners(drawing, pattern_size, centers_2d, success);
+      cv::resize(drawing, drawing, {}, 0.5, 0.5);  // 缩小图片尺寸便于显示完全
+      cv::imshow("Press any to continue", drawing);
+      cv::waitKey(0);
+    }
 
     // 输出识别结果
     fmt::print("[{}] {}\n", success ? "success" : "failure", img_path);
@@ -84,7 +93,7 @@ void print_yaml(const cv::Mat & camera_matrix, const cv::Mat & distort_coeffs, d
   fmt::print("\n{}\n", result.c_str());
 }
 
-int main(int argc, char * argv[])
+int main(int argc, char * argv[]) try
 {
   // 读取命令行参数
   cv::CommandLineParser cli(argc, argv, keys);
@@ -94,12 +103,16 @@ int main(int argc, char * argv[])
   }
   auto input_folder = cli.get<std::string>(0);
   auto config_path = cli.get<std::string>("config-path");
+  auto no_display = cli.get<bool>("no-display");
+  if (!cli.check()) { cli.printErrors(); return 1; }
 
   // 从输入文件夹中加载标定所需的数据
   cv::Size img_size;
   std::vector<std::vector<cv::Point3f>> obj_points;
   std::vector<std::vector<cv::Point2f>> img_points;
-  load(input_folder, config_path, img_size, obj_points, img_points);
+  load(input_folder, config_path, img_size, obj_points, img_points, no_display);
+  if (img_points.size() < 3)
+    throw std::runtime_error("Need at least 3 detected views; capture 20-30 varied views for calibration");
 
   // 相机标定
   cv::Mat camera_matrix, distort_coeffs;
@@ -127,4 +140,8 @@ int main(int argc, char * argv[])
 
   // 输出yaml
   print_yaml(camera_matrix, distort_coeffs, error);
+}
+catch (const std::exception & e) {
+  fmt::print(stderr, "calibrate_camera failed: {}\n", e.what());
+  return 1;
 }

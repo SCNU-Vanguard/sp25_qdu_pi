@@ -142,6 +142,7 @@ class Server
   std::shared_ptr<const Frame> latest_;
   std::exception_ptr failure_;
   Clock::time_point next_publish_{};
+  const std::string instructions_;
   std::thread worker_;
 
   // [Pi预览] 一次仅处理一个短请求，读/写都有期限；慢浏览器不会阻塞检测线程或退出。
@@ -193,10 +194,10 @@ class Server
     if (request.rfind("GET / HTTP/1.", 0) == 0) {
       static constexpr char page[] = R"HTML(<!doctype html>
 <html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SP25 实时检测</title><style>
+<title>SP25 实时预览</title><style>
 body{margin:24px;background:#15191f;color:#edf2f7;font:16px system-ui;text-align:center}
 img{max-width:100%;height:auto;border:1px solid #52606d}p{color:#cbd5e0}#status{min-height:1.5em}
-</style><h2>SP25 实时检测</h2><p>绿框：检测到的装甲板　蓝框：Tracker 锁定目标　品红十字：预测瞄准点</p>
+</style><h2>SP25 实时预览</h2><p>{{instructions}}</p>
 <p id="status">等待相机图像…</p><img id="view" alt="等待实时图像" hidden>
 <script>
 const view=document.getElementById('view'),status=document.getElementById('status');
@@ -215,7 +216,7 @@ async function update(){
     if(objectUrl)URL.revokeObjectURL(objectUrl);objectUrl=next;
     const overlay=response.headers.get('X-Overlay-Status')||'';
     status.textContent='实时画面 · 帧 '+response.headers.get('X-Frame-Sequence')+
-      ' · 检测框 '+response.headers.get('X-Detection-Count')+(overlay?' · '+overlay:'');
+      (Number(response.headers.get('X-Detection-Count'))>0?' · 检测框 '+response.headers.get('X-Detection-Count'):'')+(overlay?' · '+overlay:'');
   }catch(error){
     view.hidden=true;
     status.textContent=error.message==='stale'?'图像更新已暂停，等待新帧…':'等待图像；请确认树莓派上的预览程序仍在运行。';
@@ -223,7 +224,9 @@ async function update(){
 }
 update();
 </script></html>)HTML";
-      reply(fd, "200 OK", "text/html; charset=utf-8", page, sizeof(page) - 1);
+      std::string html(page);
+      html.replace(html.find("{{instructions}}"), 16, instructions_);
+      reply(fd, "200 OK", "text/html; charset=utf-8", html.data(), html.size());
     } else if (request.rfind("GET /frame.jpg HTTP/1.", 0) == 0) {
       std::shared_ptr<const Frame> frame;
       { std::lock_guard<std::mutex> lock(mutex_); frame = latest_; }
@@ -240,7 +243,11 @@ update();
   }
 
 public:
-  explicit Server(int port) : listener_(::socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0))
+  // instructions is trusted, caller-supplied page text, never a request parameter.
+  explicit Server(int port, const std::string & instructions =
+                    "绿框：检测到的装甲板　蓝框：Tracker 锁定目标　品红十字：预测瞄准点")
+  : listener_(::socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0)),
+    instructions_(instructions)
   {
     if (listener_.fd < 0) throw std::system_error(errno, std::generic_category(), "preview socket");
     const int reuse = 1;
