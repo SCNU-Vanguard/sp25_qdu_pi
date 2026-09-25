@@ -143,7 +143,6 @@ class Server
   std::exception_ptr failure_;
   Clock::time_point next_publish_{};
   std::thread worker_;
-  const std::string custom_page_;
 
   // [Pi预览] 一次仅处理一个短请求，读/写都有期限；慢浏览器不会阻塞检测线程或退出。
   bool ready(int fd, short events, Clock::time_point deadline)
@@ -192,10 +191,6 @@ class Server
     }
     if (request.find("\r\n\r\n") == std::string::npos) return;
     if (request.rfind("GET / HTTP/1.", 0) == 0) {
-      if (!custom_page_.empty()) {
-        reply(fd, "200 OK", "text/html; charset=utf-8", custom_page_.data(), custom_page_.size());
-        return;
-      }
       static constexpr char page[] = R"HTML(<!doctype html>
 <html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SP25 实时检测</title><style>
@@ -245,9 +240,7 @@ update();
   }
 
 public:
-  explicit Server(int port, const std::string & custom_page = {})
-  : listener_(::socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0)),
-    custom_page_(custom_page)
+  explicit Server(int port) : listener_(::socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0))
   {
     if (listener_.fd < 0) throw std::system_error(errno, std::generic_category(), "preview socket");
     const int reuse = 1;
