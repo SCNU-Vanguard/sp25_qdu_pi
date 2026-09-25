@@ -72,12 +72,10 @@ reconnect_after_timeouts: 10
 #  0  0  1
 R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, 1]
 
-# [9.21-QDU-NORMAL-TX] Provisional geometric conversion of the original SP25 calibration:
-# 2x decimation halves fx/fy/cx/cy; the verified 180-degree image rotation mirrors the principal
-# point and tangential coefficients.  This permits protocol/chain testing, but is not a replacement
-# for calibrating DA6589759 with its current lens and mount before a gimbal is connected.
-camera_matrix: [892.7440763411153, 0, 382.7596760875787, 0, 892.513009735281, 259.05198387602843, 0, 0, 1]
-distort_coeffs: [-0.076005079619881746, 0.11182817466388446, -0.0005362204787722057, 0.0027546300984895122, 0]
+# 相机内参：DA6589759，720x540，2x下采样，图像旋转180°；2026-09-25 8mm
+# 重投影误差: 0.0417px；2026-09-25 8mm
+camera_matrix: [1177.1042630293387, 0, 358.81551783016033, 0, 1175.967328042588, 259.46815557581357, 0, 0, 1]
+distort_coeffs: [-0.10756990989656506, 0.16214871294707353, -0.00020333708572492702, 0.00059129519388400069, 0]
 
 # 相机同理想情况的偏角: yaw1.44 pitch-7.28 roll0.96 degree
 # 标定板到世界坐标系原点的水平距离: 1.13 m
