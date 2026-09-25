@@ -1,4 +1,7 @@
 #include <fmt/core.h>
+#include <poll.h>
+#include <termios.h>
+#include <unistd.h>
 #include <yaml-cpp/yaml.h>
 
 #include <filesystem>
@@ -32,7 +35,35 @@ void write_q(const std::string q_path, const Eigen::Quaterniond & q)
   if (!q_file) throw std::runtime_error("Cannot save quaternion: " + q_path);
 }
 
-// SSH 的终端保持正常行输入：输入 s 或 q 后按回车，无需后台读键线程。
+// 网页预览时让 SSH 按键立即生效；保留 Ctrl+C，并在正常退出或异常时恢复终端。
+class TerminalInput
+{
+public:
+  explicit TerminalInput(bool enabled)
+  {
+    if (!enabled || !::isatty(STDIN_FILENO)) return;
+    if (::tcgetattr(STDIN_FILENO, &saved_) != 0)
+      throw std::runtime_error("Cannot read terminal settings");
+    auto immediate = saved_;
+    immediate.c_lflag &= ~(ICANON | ECHO);
+    immediate.c_cc[VMIN] = 1;
+    immediate.c_cc[VTIME] = 0;
+    if (::tcsetattr(STDIN_FILENO, TCSANOW, &immediate) != 0)
+      throw std::runtime_error("Cannot enable immediate terminal keys");
+    active_ = true;
+  }
+  ~TerminalInput()
+  {
+    if (active_) ::tcsetattr(STDIN_FILENO, TCSANOW, &saved_);
+  }
+  TerminalInput(const TerminalInput &) = delete;
+  TerminalInput & operator=(const TerminalInput &) = delete;
+
+private:
+  termios saved_{};
+  bool active_ = false;
+};
+
 int terminal_key()
 {
   pollfd input{STDIN_FILENO, POLLIN, 0};
@@ -46,12 +77,14 @@ void capture_loop(
   const cv::Size & pattern_size, bool camera_only, int preview_port)
 {
   tools::Exiter exiter;
+  TerminalInput terminal(preview_port > 0);
   std::unique_ptr<live_preview::Server> preview;
   if (preview_port > 0) {
     preview = std::make_unique<live_preview::Server>(
-      preview_port, "圆点标定采图：在 SSH 输入 s 并回车保存，输入 q 并回车退出。"
+      preview_port, "圆点标定采图：先选中 SSH 终端，直接按 s 保存、按 q 退出，无需回车。"
                     "found=yes 表示识别到完整圆点阵列；saved 表示已保存照片数。");
     tools::logger()->info("Browser preview: http://<Pi-IP>:{}/", preview_port);
+    tools::logger()->info("在 SSH 终端直接按 s 保存、按 q 退出，无需回车；Ctrl+C 也可退出");
   }
   std::unique_ptr<io::CBoard> cboard;
   if (!camera_only) cboard = std::make_unique<io::CBoard>(config_path, true);
@@ -68,7 +101,7 @@ void capture_loop(
     if (!frame || frame->image.empty()) {
       const auto now = std::chrono::steady_clock::now();
       if (now >= next_wait_log) {
-        tools::logger()->warn("[capture] 等待相机图像，继续重试；按 q 回车或 Ctrl+C 退出");
+        tools::logger()->warn("[capture] 等待相机图像，继续重试；按 q 或 Ctrl+C 退出");
         next_wait_log = now + std::chrono::seconds(1);
       }
       if (key == 's') tools::logger()->warn("Not saved: 当前没有图像，请画面恢复后重新按 s");
