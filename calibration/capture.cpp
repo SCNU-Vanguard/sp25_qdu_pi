@@ -55,16 +55,27 @@ void capture_loop(
   std::unique_ptr<io::CBoard> cboard;
   if (!camera_only) cboard = std::make_unique<io::CBoard>(config_path, true);
   io::Camera camera(config_path);
-  cv::Mat img;
-  std::chrono::steady_clock::time_point timestamp;
 
   int count = 0;
-  std::uint64_t sequence = 0;
+  auto next_wait_log = std::chrono::steady_clock::time_point{};
   while (!exiter.exit()) {
     int key = preview ? terminal_key() : -1;
     if (key == 'q') break;
-    camera.read(img, timestamp);
-    if (img.empty()) continue;
+    if (preview) preview->check();
+    // 持有帧引用直到本轮保存/预览结束；暂时无帧时交给现有驱动继续采集和重连。
+    const auto frame = camera.read_frame();
+    if (!frame || frame->image.empty()) {
+      const auto now = std::chrono::steady_clock::now();
+      if (now >= next_wait_log) {
+        tools::logger()->warn("[capture] 等待相机图像，继续重试；按 q 回车或 Ctrl+C 退出");
+        next_wait_log = now + std::chrono::seconds(1);
+      }
+      if (key == 's') tools::logger()->warn("Not saved: 当前没有图像，请画面恢复后重新按 s");
+      if (!preview && cv::waitKey(1) == 'q') break;
+      continue;
+    }
+    const auto & img = frame->image;
+    const auto timestamp = frame->timestamp;
     Eigen::Quaterniond q = Eigen::Quaterniond::Identity();
     if (cboard) q = cboard->imu_at(timestamp);
 
@@ -87,8 +98,7 @@ void capture_loop(
       overlay.status = fmt::format(
         "{}x{} | found={} | saved={} | {}", img.cols, img.rows,
         success ? "yes" : "no", count, camera_only ? "camera only" : "image + IMU");
-      preview->check();
-      preview->publish(img_with_ypr, {}, ++sequence, overlay);
+      preview->publish(img_with_ypr, {}, frame->sequence, overlay);
     } else {
       cv::resize(img_with_ypr, img_with_ypr, {}, 0.5, 0.5);
       cv::imshow("Press s to save, q to quit", img_with_ypr);
