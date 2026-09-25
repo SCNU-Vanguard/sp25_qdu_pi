@@ -10,7 +10,7 @@ camera_name: "hikrobot"
 exposure_ms: 6 # 标定板画面偏暗；只调采图曝光，不改正式识别配置。
 gain: 10.0
 vid_pid: "2bdf:0001"
-# 与 pi_standard3_qdu.yaml 保持相同的图像尺寸、下采样和旋转。
+# 与 standard3.yaml 保持相同的图像尺寸、下采样和旋转。
 serial_number: "DA6589759"
 rotate_180: true
 external_trigger: false

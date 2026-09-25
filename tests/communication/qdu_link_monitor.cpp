@@ -56,10 +56,11 @@ int main(int argc, char ** argv)
   try {
     const auto options = parse_options(argc, argv);
     std::filesystem::create_directories("logs");
-    io::CBoard cboard(options.config_path);
+    // 接收监视可共用真车配置；未显式请求发送时，连重连/退出的中性帧也禁止写出。
+    io::CBoard cboard(options.config_path, /*force_read_only=*/!options.send_command);
     // [9.21-QDU-NORMAL-TX] TX is only available to the byte-level automated regression when both
-    // its temporary config and explicit nonzero command option agree.  Normal hardware uses
-    // `standard`; this monitor remains RX-only without the option.
+    // its config enables TX and an explicit command option is present. Normal hardware uses
+    // `standard`; this monitor forces RX-only without the option, regardless of config TX.
     if (cboard.tx_enabled() != options.send_command) {
       std::cerr << "TX safety mismatch between config and --send-command\n";
       return 4;

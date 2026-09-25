@@ -97,7 +97,7 @@ const std::string keys =
   // [Pi主线C] 分开读取两份已验证的配置；保留可选位置参数作为旧合并配置入口。
   "{@config-path   |                        | 可选：同时用于相机和检测的合并配置 }"
   "{camera-config  |                        | 相机配置，默认configs/camera.yaml }"
-  "{detector-config|                        | 检测配置，默认configs/pi_hailo.yaml }"
+  "{detector-config|                        | 检测配置，默认tests/configs/hailo_baseline.yaml }"
   "{seconds        | 10                    | 运行秒数，必须大于0 }"
   "{preview-port   | 0                     | 浏览器预览端口，0关闭，建议8080 }"  // [Pi预览]
   "{sample-dir     |                       | 可选新目录：每5秒存一组同帧原图/结果，最多3组 }";  // [Pi实图]
@@ -133,7 +133,7 @@ int main(int argc, char * argv[])
   }
   if (!combined.empty()) camera_config = detector_config = combined;
   if (camera_config.empty()) camera_config = "configs/camera.yaml";
-  if (detector_config.empty()) detector_config = "configs/pi_hailo.yaml";
+  if (detector_config.empty()) detector_config = "tests/configs/hailo_baseline.yaml";
 
   // [Pi主线C] 只保存固定数量的累计值，不按运行时长积攒图片或逐帧计时样本。
   std::uint64_t processed = 0, with_detections = 0, total_detections = 0, last_sequence = 0;

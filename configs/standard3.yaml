@@ -1,9 +1,20 @@
+# 当前树莓派真车主配置；standard 与 standard_readonly 共用，后者在代码中强制只读。
 enemy_color: "red"
 # enemy_color: "blue"
 
 #####-----神经网络参数-----#####
-# [9.9-1] 已删除旧后端选择、模型路径和设备配置；Hailo 参数在后续接入时添加。
+# Hailo 模型与当前已验证的检测参数。
 min_confidence: 0.8
+
+# [9.21-QDU-NORMAL-TX] Pi/Hailo production detector selected for the normal SP25 standard chain.
+hailo_model: szu-int16-head-l
+hef_path: /home/xiao/workspace/current/pi-camera-249fps-20260822-product-arm64/source-live/Modules/ArmorDetector/model/szu_int16_head_l.hef
+nms_iou: 0.5
+lightbar_refine:
+  enabled: true
+  threshold: 150
+  min_length: 6.0
+  max_corner_shift_ratio: 0.75
 
 #####-----ROI-----#####
 roi: 
@@ -35,26 +46,44 @@ max_host_frame_age_ms: 50 # [9.9-10] Aimer 入口主机帧龄上限；不等同�
 first_tolerance: 3 # 近距离射击容差，degree
 second_tolerance: 2 # 远距离射击容差，degree
 judge_distance: 2 #距离判断阈值
-auto_fire: true # 是否由自瞄控制射击
+auto_fire: false # [9.21-QDU-NORMAL-TX] Integration stage sends aim angles but never authorizes firing.
 
 camera_name: "hikrobot"
-exposure_ms: 2.5
-gain: 16.9
-vid_pid: "2bdf:0001"
+exposure_ms: 3.0
+gain: 10.0
+# [9.21-QDU-NORMAL-TX] Reuse the camera settings already validated at 720x540 / 100 FPS.
+rotate_180: true
+serial_number: "DA6589759"
+external_trigger: false
+trigger_source: "Line0"
+trigger_activation: "RisingEdge"
+acquisition_frame_rate: 100.0
+decimation_horizontal: 2
+decimation_vertical: 2
+expected_width: 720
+expected_height: 540
+pool_size: 4
+grab_timeout_ms: 100
+read_timeout_ms: 250
+reconnect_delay_ms: 1000
+reconnect_after_timeouts: 10
 
 #  1  0  0
 #  0  1  0
 #  0  0  1
 R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, 1]
 
-# 重投影误差: 0.1820px
-camera_matrix: [1785.4881526822305, 0, 672.4806478241826, 0, 1785.026019470562, 559.89603224794314, 0, 0, 1]
-distort_coeffs: [-0.076005079619881746, 0.11182817466388446, 0.0005362204787722057, -0.0027546300984895122, 0]
+# 相机内参：DA6589759，720x540，2x下采样，图像旋转180°；2026-09-25 8mm
+# 重投影误差: 0.0417px；2026-09-25 8mm
+camera_matrix: [1177.1042630293387, 0, 358.81551783016033, 0, 1175.967328042588, 259.46815557581357, 0, 0, 1]
+distort_coeffs: [-0.10756990989656506, 0.16214871294707353, -0.00020333708572492702, 0.00059129519388400069, 0]
 
 # 相机同理想情况的偏角: yaw1.44 pitch-7.28 roll0.96 degree
 # 标定板到世界坐标系原点的水平距离: 1.13 m
 # 标定板同竖直摆放时的偏角: yaw7.61 pitch13.92 roll-0.46 degree
-R_camera2gimbal: [-0.027182119030230909, -0.12616154330853446, 0.99163723074269183, -0.99949106557517331, 0.019998323121329122, -0.024853106601381177, -0.016695575474690555, -0.99180811252093692, -0.12664093215554434]
+# [9.21-QDU-NORMAL-TX] The first two columns are flipped because software rotation reverses the
+# camera optical x/y axes.  Mount accuracy remains pending real hand-eye calibration.
+R_camera2gimbal: [0.027182119030230909, 0.12616154330853446, 0.99163723074269183, 0.99949106557517331, -0.019998323121329122, -0.024853106601381177, 0.016695575474690555, 0.99180811252093692, -0.12664093215554434]
 t_camera2gimbal: [0.13160669975045827, 0.10377721766577375, 0.024908271912914642]
 
 #####-----QDU C-board communication-----#####
@@ -63,8 +92,9 @@ qdu_communication:
   # Stable per-device symlink; it remains valid if the ttyACM number changes after hotplug.
   device: "/dev/serial/by-id/usb-QDU-Future_MainCtrl_QDU-Future-MainCtrl-89ABCDEF0123456701234567470054000E50485939373620-if00"
   baud_rate: 115200
-  # Receive-only for the first hardware gate. Set true only after RX and hotplug validation.
-  tx_enabled: false
+  # [9.21-QDU-NORMAL-TX] Enable real Aimer target_euler output in the normal standard program.
+  # Intrinsics updated 2026-09-25; mount extrinsics and real closed-loop operation still need validation.
+  tx_enabled: true
   reconnect_interval_ms: 500
   read_timeout_ms: 10
   # A missing quaternion beyond this interval makes the link stale and inhibits TX.

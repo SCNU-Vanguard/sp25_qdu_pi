@@ -25,7 +25,7 @@ Settings load_settings(const std::string & path)
   const auto config = YAML::LoadFile(path);
   // [9.9-2][Pi接入] 模型语义显式选择，拒绝误用其它 shape 相同的 HEF 或旧 ROI 配置。
   if (!config["hailo_model"] || config["hailo_model"].as<std::string>() != "szu-int16-head-l") {
-    throw std::invalid_argument("Set hailo_model: szu-int16-head-l (see configs/pi_hailo.yaml)");
+    throw std::invalid_argument("Set hailo_model: szu-int16-head-l (see configs/standard3.yaml)");
   }
   if (config["use_roi"] && config["use_roi"].as<bool>()) {
     throw std::invalid_argument("Hailo detection uses full-frame resize; set use_roi: false");

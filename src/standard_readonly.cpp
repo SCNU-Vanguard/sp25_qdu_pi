@@ -36,7 +36,7 @@ const std::string keys =
   "{seconds          | 0    | seconds to run; 0 runs until Ctrl+C}"
   "{qdu-device        |      | override qdu_communication.device, e.g. /dev/pts/3}"
   "{preview-port      | 0    | optional browser preview port; 0 disables the preview}"
-  "{@config-path      | configs/pi_standard3_qdu.yaml | positional yaml config path}";
+  "{@config-path      | configs/standard3.yaml | positional yaml config path}";
 
 // [9.21-QDU-READONLY] Apply the --qdu-device override by emitting a merged config next to the
 // original.  Only the QDU device is touched; every other key is copied verbatim so the chain under

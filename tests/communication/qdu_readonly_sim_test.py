@@ -21,7 +21,8 @@ CONFIG_TEMPLATE = (
     "qdu_communication:\n"
     '  device: "{device}"\n'
     "  baud_rate: 115200\n"
-    "  tx_enabled: false\n"
+    # The shared production config permits TX; the monitor must still force zero writes.
+    "  tx_enabled: true\n"
     "  reconnect_interval_ms: 100\n"
     "  read_timeout_ms: 10\n"
     "  stale_timeout_ms: 250\n"
