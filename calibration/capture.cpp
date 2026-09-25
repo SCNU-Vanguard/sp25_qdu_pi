@@ -91,7 +91,7 @@ void capture_loop(
 
     std::vector<cv::Point2f> centers_2d;
     auto success = calibration::find_circle_grid(img, pattern_size, centers_2d);
-    cv::drawChessboardCorners(img_with_ypr, pattern_size, centers_2d, success);  // 显示识别结果
+    calibration::draw_circle_grid(img_with_ypr, pattern_size, centers_2d, success);
 
     // 按“s”保存图片和对应四元数，按“q”退出程序
     if (preview) {

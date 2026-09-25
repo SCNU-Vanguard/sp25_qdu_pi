@@ -58,7 +58,7 @@ void load(
     // 显示识别结果
     if (!no_display) {
       auto drawing = img.clone();
-      cv::drawChessboardCorners(drawing, pattern_size, centers_2d, success);
+      calibration::draw_circle_grid(drawing, pattern_size, centers_2d, success);
       cv::resize(drawing, drawing, {}, 0.5, 0.5);  // 缩小图片尺寸便于显示完全
       cv::imshow("Press any to continue", drawing);
       cv::waitKey(0);
