@@ -5,6 +5,7 @@
 #include <fstream>
 #include <opencv2/opencv.hpp>
 
+#include "calibration/circle_grid.hpp"
 #include "io/camera.hpp"
 #include "io/cboard.hpp"
 #include "tests/live_preview.hpp"
@@ -89,7 +90,7 @@ void capture_loop(
     }
 
     std::vector<cv::Point2f> centers_2d;
-    auto success = cv::findCirclesGrid(img, pattern_size, centers_2d);  // 默认是对称圆点图案
+    auto success = calibration::find_circle_grid(img, pattern_size, centers_2d);
     cv::drawChessboardCorners(img_with_ypr, pattern_size, centers_2d, success);  // 显示识别结果
 
     // 按“s”保存图片和对应四元数，按“q”退出程序

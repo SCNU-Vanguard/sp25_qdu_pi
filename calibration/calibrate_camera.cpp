@@ -6,6 +6,7 @@
 #include <opencv2/opencv.hpp>
 #include <stdexcept>
 
+#include "calibration/circle_grid.hpp"
 #include "tools/img_tools.hpp"
 
 const std::string keys =
@@ -52,7 +53,7 @@ void load(
 
     // 识别标定板
     std::vector<cv::Point2f> centers_2d;
-    auto success = cv::findCirclesGrid(img, pattern_size, centers_2d, cv::CALIB_CB_SYMMETRIC_GRID);
+    auto success = calibration::find_circle_grid(img, pattern_size, centers_2d);
 
     // 显示识别结果
     if (!no_display) {
