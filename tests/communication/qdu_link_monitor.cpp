@@ -1,3 +1,4 @@
+//不用启动相机和整套自瞄，就能单独检查树莓派与 C 板之间有没有数据
 #include "io/cboard.hpp"
 
 #include <Eigen/Geometry>

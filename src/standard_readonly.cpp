@@ -1,24 +1,7 @@
-// [9.21-QDU-READONLY] Read-only, zero-control full-chain acceptance entry.
-//
-// Why this exists: the real QDU-Future board currently returns zero application bytes, so the SP25
-// upper layers (Tracker, Solver, Aimer) have never executed against live attitude.  This entry runs
-// the *entire* production chain — camera, Hailo detector, Solver, Tracker, Aimer, Shooter — against
-// a QDU link that is physically incapable of transmitting, so the whole pipeline can be exercised
-// and measured before a gimbal or launcher is ever connected.
-//
-// What it guarantees, by construction rather than by discipline:
-//   * io::CBoard is built with force_read_only=true, which overrides the YAML tx_enabled flag before
-//     the serial worker thread starts.  Every write path in the worker is gated on the resulting
-//     config, including the reconnect-neutral and shutdown-neutral frames.
-//   * This file never calls CBoard::send() or CBoard::send_target().  There is no call site to
-//     un-comment: the would-be command is measured, reported, and discarded.
-//   * The read-only gate is self-checked at startup.  If it does not take effect the entry refuses
-//     to run rather than continuing in an unknown state.
-//
-// What it does NOT claim: nothing here proves real C-board RX/TX, and nothing here is auto-aim
-// acceptance.  It proves the SP25 chain runs end to end on live attitude and reports what it would
-// command.  Use qdu_board_simulator to supply attitude while the real board is silent, and treat
-// every number this entry prints as simulated until a real board delivers quaternions.
+// Read-only full-chain diagnostic entry. CBoard's forced read-only mode suppresses normal,
+// reconnect, and shutdown writes; this file never calls send(). Outputs are diagnostic only.
+// Use qdu_board_simulator for attitude when the real board is silent; simulated results are not
+// evidence of real-board communication or full auto-aim acceptance.
 #include <fmt/core.h>
 #include <yaml-cpp/yaml.h>
 
@@ -30,7 +13,6 @@
 #include <opencv2/opencv.hpp>
 #include <stdexcept>
 #include <string>
-#include <vector>
 
 #include "io/camera.hpp"
 #include "io/cboard.hpp"
@@ -106,8 +88,7 @@ struct FrameSummary
 FrameSummary summarize(
   std::uint64_t sequence, double frame_age_ms, double attitude_age_ms,
   const std::list<auto_aim::Armor> & armors, const std::list<auto_aim::Target> & targets,
-  const io::Command & command, auto_aim::Aimer & aimer, auto_aim::Shooter & shooter,
-  const Eigen::Vector3d & gimbal_ypr, const std::string & tracker_state)
+  const io::Command & command, const std::string & tracker_state)
 {
   FrameSummary summary;
   summary.sequence = sequence;
@@ -119,11 +100,6 @@ FrameSummary summarize(
   summary.would_control = command.control;
   summary.would_yaw = command.yaw;
   summary.would_pitch = command.pitch;
-  // [9.21-QDU-READONLY] The Shooter is built from the production config, where auto_fire stays
-  // false, so this reports the decision the chain would make and never authorizes anything.  The
-  // live gimbal attitude is passed honestly: a fabricated value would make would_fire meaningless.
-  summary.would_fire = shooter.shoot(command, aimer, targets, gimbal_ypr);
-
   if (!targets.empty()) {
     const auto & target = targets.front();
     summary.target_name = auto_aim::ARMOR_NAMES.at(target.name);
@@ -286,11 +262,6 @@ int main(int argc, char * argv[])
     }
   }
 
-  cv::Mat img;
-  Eigen::Quaterniond q;
-  std::chrono::steady_clock::time_point t;
-  auto mode = io::Mode::idle;
-  auto last_mode = io::Mode::idle;
   auto last_report = steady_clock::now();
   auto next_overlay = steady_clock::now();
 
@@ -305,14 +276,14 @@ int main(int argc, char * argv[])
       // read-only entry has nothing to clear because it never transmitted anything.
       continue;
     }
-    img = frame->image;
-    t = frame->timestamp;
+    const auto & img = frame->image;
+    const auto t = frame->timestamp;
 
     if (!cboard.imu_fresh()) {
       // [9.21-QDU-READONLY] Publish the raw frame anyway.  With the real board currently silent this
       // is the state the entry spends most of its time in, and the operator still needs to see that
       // the camera is alive and delivering frames.
-      if (preview) preview->publish(img, std::list<auto_aim::Armor>{}, frame->sequence);
+      if (preview) preview->publish(img, {}, frame->sequence);
       const auto now = steady_clock::now();
       if (now - last_report >= std::chrono::seconds(1)) {
         const auto stats = cboard.link_stats();
@@ -325,13 +296,7 @@ int main(int argc, char * argv[])
       continue;
     }
 
-    q = cboard.imu_at(t);
-    mode = cboard.mode;
-    if (last_mode != mode) {
-      log->info("Switch to {}", io::MODES[mode]);
-      last_mode = mode;
-    }
-
+    const auto q = cboard.imu_at(t);
     solver.set_R_gimbal2world(q);
     const Eigen::Vector3d ypr = tools::eulers(solver.R_gimbal2world(), 2, 1, 0);
 
@@ -343,32 +308,33 @@ int main(int argc, char * argv[])
     const auto command = aimer.aim(targets, cboard.bullet_speed, pipeline_delay_s);
     const auto command_time = steady_clock::now();
 
-    // [Pi预览-OVERLAY] Build the overlay at the preview's own rate so reprojection is only paid for
-    // frames that can actually be published.
-    if (preview) {
-      const auto now = steady_clock::now();
-      if (now >= next_overlay) {
+    const auto now = steady_clock::now();
+    const bool report_due = command_time - last_report >= std::chrono::seconds(1);
+    const bool preview_due = preview && now >= next_overlay;
+    if (report_due || preview_due) {
+      auto summary = summarize(
+        frame->sequence, tools::delta_time(command_time, t) * 1e3, cboard.imu_age_ms(), armors,
+        targets, command, tracker.state());
+
+      // Shooter has state: evaluate it only at the diagnostic log cadence, not at preview cadence.
+      if (report_due)
+        summary.would_fire = shooter.shoot(command, aimer, targets, ypr);
+
+      if (preview_due) {
         next_overlay = now + std::chrono::milliseconds(100);
-        const auto summary = summarize(
-          frame->sequence, tools::delta_time(command_time, t) * 1e3, cboard.imu_age_ms(), armors,
-          targets, command, aimer, shooter, ypr, tracker.state());
         preview->publish(
           img, armors, frame->sequence,
           build_overlay(solver, aimer, targets, tracker.state(), summary));
       }
-      preview->check();
+      if (report_due) {
+        const auto stats = cboard.link_stats();
+        log->info(
+          "{} gimbal_ypr=[{:.3f},{:.3f},{:.3f}]", format_summary(summary, stats), ypr.x(),
+          ypr.y(), ypr.z());
+        last_report = command_time;
+      }
     }
-
-    if (command_time - last_report >= std::chrono::seconds(1)) {
-      const auto stats = cboard.link_stats();
-      const auto summary = summarize(
-        frame->sequence, tools::delta_time(command_time, t) * 1e3, cboard.imu_age_ms(), armors,
-        targets, command, aimer, shooter, ypr, tracker.state());
-      log->info(
-        "{} gimbal_ypr=[{:.3f},{:.3f},{:.3f}]", format_summary(summary, stats), ypr.x(), ypr.y(),
-        ypr.z());
-      last_report = command_time;
-    }
+    if (preview) preview->check();
   }
 
   const auto final_stats = cboard.link_stats();
