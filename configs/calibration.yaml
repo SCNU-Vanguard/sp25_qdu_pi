@@ -1,8 +1,8 @@
 pattern_cols: 7
 pattern_rows: 7
-# 实拍板为对称 7x7 圆点；圆心间距尚未确认。0 阻止用旧板的 40 mm 误求解。
-# 测量相邻圆心距离（不是圆直径）后填写，采图不依赖此数值。
-center_distance_mm: 0
+# DFvision HC7-300-15：7x7，板尺寸300mm，圆直径15mm，圆心间距30mm。
+# 厂家规格表：https://dfstore.net/products/circular-dot-calibration-board
+center_distance_mm: 30
 
 R_gimbal2imubody: [1, 0, 0, 0, 1, 0,  0, 0, 1]
 
