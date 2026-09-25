@@ -8,4 +8,5 @@
 - Exclude Git history, docs, build outputs, logs, user pictures, and calibration captures from main-source delivery. Put transfer/verification tooling under `build/`.
 - Do not generate source backups on the Pi. Remove temporary transfer packages after successful deployment. Recover versions through PC Git and resync.
 - Changes made during Pi-side debugging must be brought back to the PC and committed before the next source sync.
+- Explain each proposed change and user command in plain Chinese: where to run it, why it is needed, what it changes, and what success looks like. Give small steps rather than unexplained command blocks.
 - Do not claim the Pi matches the PC until the Pi-side verification has actually passed. Never delete unexpected or third-party Pi files merely to make a check pass.
