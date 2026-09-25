@@ -2,7 +2,6 @@
 
 #include <opencv2/calib3d.hpp>
 #include <opencv2/features2d.hpp>
-#include <opencv2/imgproc.hpp>
 #include <vector>
 
 namespace calibration
@@ -28,7 +27,7 @@ inline bool find_circle_grid(
   return found;
 }
 
-// 只调整显示：选更接近画面水平方向的一组行，不改变求解用的圆心顺序。
+// 仅整理显示副本的顺序：横向逐行、从上到下；仍使用原 OpenCV 彩色标记和连线。
 inline void draw_circle_grid(
   cv::Mat & drawing, const cv::Size & pattern,
   const std::vector<cv::Point2f> & centers, bool found)
@@ -36,20 +35,26 @@ inline void draw_circle_grid(
   if (!found || pattern.width < 2 || pattern.height < 2 ||
       centers.size() != static_cast<size_t>(pattern.area())) return;
 
-  const auto row = centers[pattern.width - 1] - centers[0];
-  const auto col = centers[(pattern.height - 1) * pattern.width] - centers[0];
+  const auto row = centers[pattern.width - 1] - centers[0] +
+                   centers.back() - centers[(pattern.height - 1) * pattern.width];
+  const auto col = centers[(pattern.height - 1) * pattern.width] - centers[0] +
+                   centers.back() - centers[pattern.width - 1];
   const bool transpose = col.x * col.x * row.dot(row) > row.x * row.x * col.dot(col);
   const int rows = transpose ? pattern.width : pattern.height;
   const int cols = transpose ? pattern.height : pattern.width;
+  const auto point = [&](int r, int c) -> const cv::Point2f & {
+    return centers[transpose ? c * pattern.width + r : r * pattern.width + c];
+  };
+  const bool flip_rows = point(0, 0).y + point(0, cols - 1).y >
+                         point(rows - 1, 0).y + point(rows - 1, cols - 1).y;
+  const bool flip_cols = point(0, 0).x + point(rows - 1, 0).x >
+                         point(0, cols - 1).x + point(rows - 1, cols - 1).x;
+  std::vector<cv::Point2f> display_centers;
+  display_centers.reserve(centers.size());
   for (int r = 0; r < rows; ++r) {
-    for (int c = 1; c < cols; ++c) {
-      const auto & a = centers[transpose ? (c - 1) * pattern.width + r : r * pattern.width + c - 1];
-      const auto & b = centers[transpose ? c * pattern.width + r : r * pattern.width + c];
-      // 统一从左向右绘制。
-      cv::line(drawing, a.x <= b.x ? a : b, a.x <= b.x ? b : a, {0, 220, 0}, 1, cv::LINE_AA);
-    }
+    for (int c = 0; c < cols; ++c)
+      display_centers.push_back(point(flip_rows ? rows - 1 - r : r, flip_cols ? cols - 1 - c : c));
   }
-  for (const auto & center : centers)
-    cv::circle(drawing, center, 3, {0, 220, 255}, 1, cv::LINE_AA);
+  cv::drawChessboardCorners(drawing, {cols, rows}, display_centers, true);
 }
 }  // namespace calibration
