@@ -2,7 +2,10 @@
 
 > 日期：2026-09-22
 > 起因：本项目此前没有版本管理，改坏了只能靠记忆和 `docs/` 里的日志还原。本文写给**不熟悉 git 的人**，目标是"会回退、会看历史、不怕改坏"。
-> 适用范围：`sp_vision_25-main`（Windows 11 主机 + WSL + 树莓派 5 三处操作同一份代码）
+> 当前约定（2026-09-26）：电脑负责 Git；WSL 可检查同一电脑工作区；树莓派仅接收完整源码包并校验，不要求安装 Git。
+>
+> GitHub 私有仓库：https://github.com/pineapple-miriam/sp_vision_25-main 。远程名为 `origin`；默认显示当前工作分支 `feat/calibration-web-reuse`，历史 `main` 和其他开发分支保留原样。
+> `commit` 记录电脑本地版本，`push` 才把已提交版本上传；两者都不会自动更新树莓派。
 
 ---
 
@@ -39,9 +42,10 @@
 
 ```bash
 git status              # 我看得最频繁的命令：现在改了哪些文件
-git add -A              # 把所有改动放进暂存区
+git add -- configs/standard3.yaml  # 示例：只暂存本次确认要提交的文件
 git commit -m "说明"     # 提交，生成一个历史节点
 git log --oneline -5    # 确认提交成功，看最近 5 条
+git push               # 上传当前分支的提交到私有 GitHub 仓库
 ```
 
 `git status` 的输出这样读：
@@ -229,16 +233,12 @@ Windows 主机、WSL、树莓派三处操作同一份代码。配置为：
 
 已设 `core.quotepath=false`，否则 `git status` 会把中文显示成 `\344\270\255` 这类转义。
 
-### 6.5 在树莓派 / WSL 上操作
+### 6.5 电脑、WSL、GitHub 与树莓派的分工
 
-```bash
-# 树莓派（只读检出，或拉取主机推过去的提交）
-cd ~/workspace/sp_vision_25-main
-git status
-git log --oneline -5
-```
-
-三处是同一个 `.git` 的不同检出，用 `git remote` + `push/pull` 同步（本篇不展开，需要时再配）。
+Git 在电脑项目目录中管理。WSL 使用 `/mnt/d/workspace/sp_vision_25-main` 时访问的是同一电脑工作区，不是另一份 Pi 仓库。
+GitHub 保存已推送的提交和分支，是远程副本；没有提交的新照片不会因 `push` 自动入库。
+树莓派继续通过完整源码包解压和 `build/pi-sync/verify_source.py` 校验更新，不复制 `.git`，不生成源码备份。
+只有 YAML 修改时，已有程序通常重启即可读取；C++ 修改后才按受影响目标重新编译。
 
 ---
 
@@ -265,7 +265,9 @@ git status
 git diff
 
 # 存档一个节点
-git add -A && git commit -m "[9.23] 做了什么"
+git add -- <本次修改的文件>
+git commit -m "做了什么"
+git push
 
 # 回头看
 git log --oneline -10
